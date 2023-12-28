@@ -12,7 +12,7 @@ import {
    addBoard,
    addCard,
    addList,
-   addAttachment
+   addAttachment,
 } from "./helper.js";
 
 // Create a telegram bot with its API KEY
@@ -84,15 +84,24 @@ const createTrelloCardAndAttachVideo = async (
 
    let cardName = videoFileName ?? "New Card";
    const newCard = await addCard(cardName, current_list_id);
-   console.log(newCard,'newCard');
+   console.log(newCard, "newCard");
    const attach = await addAttachment(newCard.id, videoFileId);
 
    if (attach) {
-      await bot.sendMessage(chatId, `Trello card created with video attachment! - ${videoFileName}`);
-      return {type:"success",msg:"Trello card created with video attachment"}
+      await bot.sendMessage(
+         chatId,
+         `Trello card created with video attachment! - ${videoFileName}`
+      );
+      return {
+         type: "success",
+         msg: "Trello card created with video attachment",
+      };
    } else {
-      await bot.sendMessage(chatId, `Failed to create with video attachment! - ${videoFileName}`);
-      return {type:"error",msg:"Failed to create the video."}
+      await bot.sendMessage(
+         chatId,
+         `Failed to create with video attachment! - ${videoFileName}`
+      );
+      return { type: "error", msg: "Failed to create the video." };
    }
 };
 
@@ -139,7 +148,13 @@ async function sendInstructions(msg, data) {
          await bot.sendMessage(msg.chat.id, "You Selected: Edit Request");
          break;
    }
-   const result = await createTrelloCardAndAttachVideo("Videos", "New List", msg.chat.id, telegram2user[msg.chat.id].file_id, telegram2user[msg.chat.id].file_name);
+   const result = await createTrelloCardAndAttachVideo(
+      "Videos",
+      "New List",
+      msg.chat.id,
+      telegram2user[msg.chat.id].file_id,
+      telegram2user[msg.chat.id].file_name
+   );
 }
 
 // STEP2 - select the video count
@@ -248,8 +263,8 @@ bot.on("message", (msg) => {
       }
 
       if (
-         (user.status =
-            "select_file" && Object.keys(msg).indexOf("video") != -1)
+         user.status == "select_file" &&
+         Object.keys(msg).indexOf("video") != -1
       ) {
          telegram2user[msg.from.id] = new User("send_request");
          displayInstructions(msg);
