@@ -13,6 +13,7 @@ import {
    addCard,
    addList,
    addAttachment,
+   addDescription
 } from "./helper.js";
 
 // Create a telegram bot with its API KEY
@@ -23,18 +24,22 @@ const bot = new TelegramBot(token, { polling: true });
 class User {
    constructor(status) {
       this.status = status;
+      this.first_name = "";
       this.nickname = "";
       this.videoCount = "";
       this.file_id = "";
       this.file_name = "";
+      this.caption = "";
    }
 
    initializeExceptLang(status) {
       this.status = status;
+      this.first_name = "";
       this.nickname = "";
       this.videoCount = "";
       this.file_id = "";
       this.file_name = "";
+      this.caption = "";
    }
 }
 
@@ -47,7 +52,10 @@ const createTrelloCardAndAttachVideo = async (
    MainListName,
    chatId,
    videoFileId,
-   videoFileName
+   videoFileName,
+   first_name,
+   videoCount,
+   caption
 ) => {
    // Use Trello API to create a card and attach the video
    let boardId = await getBoardIdByName(MainBoardName);
@@ -82,10 +90,19 @@ const createTrelloCardAndAttachVideo = async (
       }
    }
 
-   let cardName = videoFileName ?? "New Card";
-   const newCard = await addCard(cardName, current_list_id);
+   let cardName = first_name + " - " + (videoFileName ?? "New Card");
+   // let desc = new Date().toString();
+   const description_data = {
+      chatId: chatId,
+      description: caption
+   }
+   // let cardName = videoFileName ?? "New Card";
+   console.log(cardName, "cardName-------------------");
+
+   const newCard = await addCard(chatId, cardName, current_list_id);
    console.log(newCard, "newCard");
    const attach = await addAttachment(newCard.id, videoFileId);
+   const description = await addDescription(newCard.id, JSON.stringify(description_data));
 
    if (attach) {
       await bot.sendMessage(
@@ -107,9 +124,15 @@ const createTrelloCardAndAttachVideo = async (
 
 // STEP3 - display Instructions
 function displayInstructions(msg, first = false) {
-   console.log(msg.video, "video");
-   telegram2user[msg.chat.id].file_id = msg?.video?.file_id;
-   telegram2user[msg.chat.id].file_name = msg?.video?.file_name;
+   // console.log(msg.video, "video");
+   if (Object.keys(msg).indexOf("video") != -1) {
+      telegram2user[msg.chat.id].file_id = msg?.video?.file_id;
+      telegram2user[msg.chat.id].file_name = msg?.video?.file_name;
+   }
+   if (Object.keys(msg).indexOf("animation") != -1) {
+      telegram2user[msg.chat.id].file_id = msg?.animation?.file_id;
+      telegram2user[msg.chat.id].file_name = msg?.animation?.file_name;
+   }
    const text = "What do you need done? Please provide instructions";
    bot.sendMessage(msg.chat.id, text, {
       reply_markup: {
@@ -136,8 +159,12 @@ function displayInstructions(msg, first = false) {
 
 // STEP3 - select Instructions
 async function sendInstructions(msg, data) {
-   telegram2user[msg.chat.id].status = "send_request";
-   console.log(telegram2user[msg.chat.id].file_id, "user file id");
+   // telegram2user[msg.chat.id]["status"] = "send_request";
+
+   // console.log(telegram2user, "send_request: telegram2user");
+   // console.log('-------------------------------------------------------------')
+
+   // console.log(telegram2user[msg.chat.id].file_id, "user file id");
    switch (data) {
       case "Send in Request":
          telegram2user[msg.chat.id].selected_request = "Send in Request";
@@ -153,7 +180,10 @@ async function sendInstructions(msg, data) {
       "New List",
       msg.chat.id,
       telegram2user[msg.chat.id].file_id,
-      telegram2user[msg.chat.id].file_name
+      telegram2user[msg.chat.id].file_name,
+      telegram2user[msg.chat.id].first_name,
+      telegram2user[msg.chat.id].videoCount,
+      telegram2user[msg.chat.id].caption
    );
 }
 
@@ -197,11 +227,16 @@ function displayVideoCountButtons(msg, first = false) {
 
 // STEP2 - to select a language from a inline keyboard.
 async function sendSelectVideoCount(msg, data) {
-   telegram2user[msg.chat.id].status = "select_file";
+   telegram2user[msg.chat.id]["status"] = "select_file";
+
+   console.log(telegram2user, "select_file: telegram2user");
+   console.log("-------------------------------------------------------------");
+
    switch (data) {
       case "Variations":
-         telegram2user[msg.chat.id].videoCount = "videoCount";
-         await bot.sendMessage(msg.chat.id, "You Selected: videoCount");
+         telegram2user[msg.chat.id].videoCount = "Variations";
+
+         await bot.sendMessage(msg.chat.id, "You Selected: Variations");
          break;
       case "Localization":
          telegram2user[msg.chat.id].videoCount = "Localization";
@@ -233,6 +268,11 @@ async function sendGreeting(msg) {
    displayVideoCountButtons(msg);
 }
 
+// other
+function sendOtherMessage(msg) {
+   bot.sendMessage(msg.chat.id, "There is no video, please retry.");
+}
+
 // handler - callback after selecting a language from a inline keyboard.
 bot.on("callback_query", (callbackQuery) => {
    console.log(callbackQuery.message, "call");
@@ -247,33 +287,44 @@ bot.on("callback_query", (callbackQuery) => {
    }
 });
 
+// message handler
 bot.on("message", (msg) => {
    console.log(msg, "msg");
+   console.log("-------------------------------------------------------------");
 
-   const user = telegram2user[msg.from.id];
+   // const user = telegram2user[msg.from.id];
    const chatId = msg.chat.id;
 
    try {
       // ------------------------------------ STEP1 - /start - greeting ----------------------------------------
       if (msg?.text && msg.text.startsWith("/start")) {
          telegram2user[msg.from.id] = new User("select_number");
-         console.log(telegram2user, "telegram2user");
+         telegram2user[msg.from.id].first_name = msg.from.first_name;
+         console.log(telegram2user, "select_number: telegram2user");
+         console.log(
+            "-------------------------------------------------------------"
+         );
+
          sendGreeting(msg);
          return;
       }
 
       if (
-         user.status == "select_file" &&
-         Object.keys(msg).indexOf("video") != -1
+         telegram2user[msg.from.id].status == "select_file" &&
+         (Object.keys(msg).indexOf("video") != -1 ||
+            Object.keys(msg).indexOf("animation") != -1)
       ) {
-         telegram2user[msg.from.id] = new User("send_request");
+         telegram2user[msg.from.id].status = "send_request";
+         telegram2user[msg.from.id].caption = msg.caption;
+         console.log(telegram2user, "send_request: telegram2user");
+         console.log(
+            "-------------------------------------------------------------"
+         );
+
          displayInstructions(msg);
          return;
       } else {
-         bot.sendMessage(
-            msg.chat.id,
-            "please drag n drop the videos you need edited"
-         );
+         sendOtherMessage(msg);
          return;
       }
    } catch (e) {

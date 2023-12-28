@@ -1,1 +1,1 @@
-# telegram-bot-media
+# telegram-media-bot

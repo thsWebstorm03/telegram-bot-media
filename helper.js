@@ -144,7 +144,7 @@ export const addList = async (name, idBoard) => {
    }
 };
 
-export const addCard = async (name, idList) => {
+export const addCard = async (chatId, name, idList) => {
    const apiURL = `https://api.trello.com/1/cards?key=${apiKey}&token=${apiToken}&name=${name}&idList=${idList}`;
    try {
       const response = await fetch(apiURL, { method: "POST" });
@@ -171,6 +171,31 @@ export const addAttachment = async (id, videoFileId) => {
          headers: { "Content-Type": "application/json" },
          body: JSON.stringify({
             url: fileUrl,
+         }),
+      });
+
+      if (response.ok) {
+         const responseBody = await response.json();
+         console.log(responseBody)
+         return responseBody;
+      } else {
+         console.error("Error creating Trello board:", response.statusText);
+         return false;
+      }
+   } catch (error) {
+      console.error("Error:", error);
+      return false;
+   }
+};
+
+export const addDescription = async (id, description) => {
+   const apiURL = `https://api.trello.com/1/cards/${id}?key=${apiKey}&token=${apiToken}`;
+   try {
+      const response = await fetch(apiURL, {
+         method: "PUT",
+         headers: { "Content-Type": "application/json" },
+         body: JSON.stringify({
+            desc: description,
          }),
       });
 
